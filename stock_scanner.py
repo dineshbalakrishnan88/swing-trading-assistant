@@ -1,63 +1,11 @@
 import yfinance as yf
 import pandas as pd
 from ta.momentum import RSIIndicator
-from datetime import datetime
-
-# =====================================
-# SETTINGS
-# =====================================
 
 MAX_RISK_PER_TRADE = 100
 MAX_STOCKS = 5
 
-# =====================================
-# MARKET REGIME
-# =====================================
-
-print("Checking Market Regime...")
-
-market_ok = True
-
-for index_symbol in ["SPY", "QQQ"]:
-
-    df = yf.download(
-        index_symbol,
-        period="1y",
-        auto_adjust=True,
-        progress=False
-    )
-
-    close = df["Close"].squeeze()
-
-    current = float(close.iloc[-1])
-
-    ma200 = float(close.tail(200).mean())
-
-    if current < ma200:
-        market_ok = False
-
-if not market_ok:
-
-    print("Market regime is BEARISH")
-
-    report = pd.DataFrame({
-        "Message": [
-            "NO TRADES - BEARISH MARKET REGIME"
-        ]
-    })
-
-    report.to_excel(
-        "weekly_watchlist.xlsx",
-        index=False
-    )
-
-    raise SystemExit()
-
-print("Market regime is BULLISH")
-
-# =====================================
-# LOAD SP500
-# =====================================
+print("Loading S&P500 stocks...")
 
 sp500_url = "https://raw.githubusercontent.com/datasets/s-and-p-500-companies/master/data/constituents.csv"
 
@@ -65,93 +13,13 @@ sp500 = pd.read_csv(sp500_url)
 
 stocks = sp500["Symbol"].tolist()
 
-print(f"Loaded {len(stocks)} stocks")
-
-# =====================================
-# BUILD SECTOR STRENGTH TABLE
-# =====================================
-
-sector_strength = {}
-
-for _, row in sp500.iterrows():
-
-    try:
-
-        symbol = str(
-            row["Symbol"]
-        ).replace(".", "-")
-
-        sector = row["Sector"]
-
-        stock = yf.Ticker(symbol)
-
-        hist = stock.history(
-            period="6mo"
-        )
-
-        if len(hist) < 50:
-            continue
-
-        perf = (
-            hist["Close"].iloc[-1]
-            /
-            hist["Close"].iloc[0]
-            - 1
-        ) * 100
-
-        sector_strength.setdefault(
-            sector,
-            []
-        ).append(perf)
-
-    except:
-        pass
-
-sector_scores = {}
-
-for sector, values in sector_strength.items():
-
-    if len(values) > 0:
-
-        sector_scores[sector] = (
-            sum(values)
-            /
-            len(values)
-        )
-
-# =====================================
-# SPY RELATIVE STRENGTH
-# =====================================
-
-spy = yf.download(
-    "SPY",
-    period="6mo",
-    auto_adjust=True,
-    progress=False
-)
-
-spy_return = (
-    spy["Close"].iloc[-1]
-    /
-    spy["Close"].iloc[0]
-    - 1
-) * 100
-
-# =====================================
-# MAIN SCAN
-# =====================================
-
 results = []
 
-for _, row in sp500.iterrows():
+for symbol in stocks:
 
-    symbol = str(
-        row["Symbol"]
-    ).replace(".", "-")
+    symbol = str(symbol).replace(".", "-")
 
-    sector = row["Sector"]
-
-    print(f"Scanning {symbol}")
+    print(f"Scanning {symbol}...")
 
     try:
 
@@ -160,74 +28,44 @@ for _, row in sp500.iterrows():
         info = stock.info
 
         revenue_growth = info.get(
-            "revenueGrowth"
+            "revenueGrowth",
+            None
         )
 
         earnings_growth = info.get(
-            "earningsGrowth"
+            "earningsGrowth",
+            None
         )
 
         profit_margin = info.get(
-            "profitMargins"
+            "profitMargins",
+            None
         )
 
         market_cap = info.get(
-            "marketCap"
+            "marketCap",
+            None
         )
 
-        earnings_date = info.get(
-            "earningsTimestamp"
-        )
-
-        # ==================
-        # FUNDAMENTALS
-        # ==================
-
-        if revenue_growth is None:
+        if (
+            revenue_growth is None or
+            earnings_growth is None or
+            profit_margin is None or
+            market_cap is None
+        ):
             continue
 
-        if earnings_growth is None:
+        if revenue_growth < 0.10:
             continue
 
-        if profit_margin is None:
+        if earnings_growth < 0.10:
             continue
 
-        if market_cap is None:
-            continue
-
-        if revenue_growth < 0.15:
-            continue
-
-        if earnings_growth < 0.15:
-            continue
-
-        if profit_margin < 0.10:
+        if profit_margin <= 0:
             continue
 
         if market_cap < 10000000000:
             continue
-
-        # ==================
-        # EARNINGS FILTER
-        # ==================
-
-        if earnings_date:
-
-            earnings_date = datetime.fromtimestamp(
-                earnings_date
-            )
-
-            days_to_earnings = (
-                earnings_date -
-                datetime.now()
-            ).days
-
-            if 0 <= days_to_earnings <= 14:
-                continue
-
-        # ==================
-        # PRICE DATA
-        # ==================
 
         df = yf.download(
             symbol,
@@ -241,14 +79,168 @@ for _, row in sp500.iterrows():
 
         close = df["Close"].squeeze()
 
-        current_price = float(
-            close.iloc[-1]
+        current_price = float(close.iloc[-1])
+
+        ma50 = float(close.tail(50).mean())
+
+        ma200 = float(close.tail(200).mean())
+
+        rsi = float(
+            RSIIndicator(close).rsi().iloc[-1]
         )
 
-        ma50 = float(
-            close.tail(50).mean()
+        if current_price <= ma50:
+            continue
+
+        if current_price <= ma200:
+            continue
+
+        if not (50 <= rsi <= 70):
+            continue
+
+        score = 100
+
+        rating = "ELITE"
+
+        buy_zone = round(
+            ma50 * 1.02,
+            2
         )
 
-        ma200 = float(
-            close.tail(200).mean()
+        stop_loss = round(
+            ma50 * 0.97,
+            2
         )
+
+        risk_per_share = (
+            current_price - stop_loss
+        )
+
+        if risk_per_share <= 0:
+            continue
+
+        target_price = round(
+            current_price +
+            (risk_per_share * 2),
+            2
+        )
+
+        shares = max(
+            1,
+            int(
+                MAX_RISK_PER_TRADE /
+                risk_per_share
+            )
+        )
+
+        position_value = round(
+            shares * current_price,
+            2
+        )
+
+        risk_reward = round(
+            (
+                target_price -
+                current_price
+            ) /
+            (
+                current_price -
+                stop_loss
+            ),
+            2
+        )
+
+        results.append({
+
+            "Ticker": symbol,
+
+            "Rating": rating,
+
+            "Score": score,
+
+            "Price": round(
+                current_price,
+                2
+            ),
+
+            "Revenue Growth %": round(
+                revenue_growth * 100,
+                1
+            ),
+
+            "Earnings Growth %": round(
+                earnings_growth * 100,
+                1
+            ),
+
+            "Profit Margin %": round(
+                profit_margin * 100,
+                1
+            ),
+
+            "RSI": round(
+                rsi,
+                1
+            ),
+
+            "Buy Zone": buy_zone,
+
+            "Stop Loss": stop_loss,
+
+            "Target": target_price,
+
+            "Shares": shares,
+
+            "Position Value": position_value,
+
+            "Risk/Reward": risk_reward
+
+        })
+
+    except Exception as e:
+
+        print(
+            f"Error processing {symbol}: {e}"
+        )
+
+report = pd.DataFrame(results)
+
+if report.empty:
+
+    report = pd.DataFrame({
+        "Message": [
+            "NO HIGH-CONVICTION TRADES THIS WEEK"
+        ]
+    })
+
+else:
+
+    report = report.sort_values(
+        by=[
+            "Revenue Growth %",
+            "Earnings Growth %"
+        ],
+        ascending=False
+    )
+
+    report = report.head(MAX_STOCKS)
+
+    report.insert(
+        0,
+        "Rank",
+        range(
+            1,
+            len(report) + 1
+        )
+    )
+
+report.to_excel(
+    "weekly_watchlist.xlsx",
+    index=False
+)
+
+print(report)
+
+print(
+    "\nHigh Conviction Report Created"
+)
