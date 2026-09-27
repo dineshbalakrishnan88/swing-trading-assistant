@@ -18,6 +18,8 @@ results = []
 
 for symbol in stocks:
 
+    print(f"Scanning {symbol}...")
+
     df = yf.download(
         symbol,
         period="1y",
@@ -28,11 +30,13 @@ for symbol in stocks:
     if len(df) < 200:
         continue
 
-    current_price = float(df["Close"].iloc[-1])
+    close = df["Close"]
 
-    ma50 = float(df["Close"].tail(50).mean())
+    current_price = close.iloc[-1]
 
-    ma200 = float(df["Close"].tail(200).mean())
+    ma50 = close.tail(50).mean()
+
+    ma200 = close.tail(200).mean()
 
     score = 0
 
@@ -44,9 +48,9 @@ for symbol in stocks:
 
     results.append({
         "Ticker": symbol,
-        "Price": round(current_price,2),
-        "MA50": round(ma50,2),
-        "MA200": round(ma200,2),
+        "Price": round(current_price, 2),
+        "MA50": round(ma50, 2),
+        "MA200": round(ma200, 2),
         "Score": score
     })
 
@@ -57,6 +61,5 @@ report = report.sort_values(
     ascending=False
 )
 
-print("\nTOP STOCKS\n")
-
-print(report)
+print("\n===== TOP STOCKS =====\n")
+print(report.to_string(index=False))
