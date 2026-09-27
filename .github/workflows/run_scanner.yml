@@ -24,3 +24,9 @@ jobs:
 
     - name: Run Script
       run: python stock_scanner.py
+      
+    - name: Upload Report
+      uses: actions/upload-artifact@v4
+      with:
+        name: weekly-watchlist
+        path: weekly_watchlist.xlsx
