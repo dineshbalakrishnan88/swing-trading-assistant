@@ -7,29 +7,37 @@ on:
     - cron: '0 5 * * 6'
 
 jobs:
+
   run-python:
 
     runs-on: ubuntu-latest
 
     steps:
 
-    - name: Checkout Repository
-      uses: actions/checkout@v4
+      - name: Checkout Repository
+        uses: actions/checkout@v4
 
-    - name: Setup Python
-      uses: actions/setup-python@v5
-      with:
-        python-version: '3.11'
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
 
-    - name: Install Packages
-      run: |
-        pip install -r requirements.txt
+      - name: Install Packages
+        run: |
+          pip install -r requirements.txt
 
-    - name: Run Script
-      run: python stock_scanner.py
+      - name: Run Scanner
+        run: python stock_scanner.py
 
-    - name: Upload Report
-      uses: actions/upload-artifact@v4
-      with:
-        name: weekly-watchlist
-        path: weekly_watchlist.xlsx
+      - name: Send Email
+        env:
+          GMAIL_USER: ${{ secrets.GMAIL_USER }}
+          GMAIL_PASSWORD: ${{ secrets.GMAIL_PASSWORD }}
+          EMAIL_TO: ${{ secrets.EMAIL_TO }}
+        run: python send_email.py
+
+      - name: Upload Report
+        uses: actions/upload-artifact@v4
+        with:
+          name: weekly-watchlist
+          path: weekly_watchlist.xlsx
