@@ -2,6 +2,10 @@ import yfinance as yf
 import pandas as pd
 from ta.momentum import RSIIndicator
 
+# ===========================
+# SETTINGS
+# ===========================
+
 MAX_RISK_PER_TRADE = 100
 
 stocks = [
@@ -16,6 +20,10 @@ stocks = [
     "AVGO",
     "AAPL"
 ]
+
+# ===========================
+# MAIN SCANNER
+# ===========================
 
 results = []
 
@@ -47,9 +55,9 @@ for symbol in stocks:
             RSIIndicator(close).rsi().iloc[-1]
         )
 
-        # ==================
-        # SCORING
-        # ==================
+        # ======================
+        # SCORE
+        # ======================
 
         score = 0
 
@@ -62,25 +70,25 @@ for symbol in stocks:
         if 50 <= rsi <= 70:
             score += 20
 
-        # ==================
+        # ======================
         # RATING
-        # ==================
+        # ======================
 
         if score >= 100:
-            rating = "A+"
+            rating = "STRONG BUY"
 
         elif score >= 80:
-            rating = "A"
+            rating = "BUY"
 
         elif score >= 60:
-            rating = "B"
+            rating = "WATCH"
 
         else:
-            rating = "Avoid"
+            rating = "AVOID"
 
-        # ==================
+        # ======================
         # TRADE PLAN
-        # ==================
+        # ======================
 
         buy_zone = round(
             ma50 * 1.02,
@@ -100,7 +108,8 @@ for symbol in stocks:
             continue
 
         target_price = round(
-            current_price + (risk_per_share * 2),
+            current_price +
+            (risk_per_share * 2),
             2
         )
 
@@ -109,10 +118,18 @@ for symbol in stocks:
             risk_per_share
         )
 
+        position_value = round(
+            shares * current_price,
+            2
+        )
+
         risk_reward = round(
-            (target_price - current_price)
-            /
-            (current_price - stop_loss),
+            (
+                target_price - current_price
+            ) /
+            (
+                current_price - stop_loss
+            ),
             2
         )
 
@@ -152,8 +169,9 @@ for symbol in stocks:
 
             "Shares": shares,
 
-            "Risk/Reward": risk_reward
+            "Position Value": position_value,
 
+            "Risk/Reward": risk_reward
         })
 
     except Exception as e:
@@ -162,9 +180,9 @@ for symbol in stocks:
             f"Error processing {symbol}: {e}"
         )
 
-# ==================
+# ===========================
 # REPORT
-# ==================
+# ===========================
 
 report = pd.DataFrame(results)
 
@@ -173,6 +191,12 @@ if not report.empty:
     report = report.sort_values(
         by=["Score", "RSI"],
         ascending=[False, True]
+    )
+
+    report.insert(
+        0,
+        "Rank",
+        range(1, len(report) + 1)
     )
 
     print("\n===== TOP STOCKS =====\n")
