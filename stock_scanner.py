@@ -27,39 +27,46 @@ for symbol in stocks:
         progress=False
     )
 
-    if len(df) < 200:
+    if df.empty:
         continue
 
-    close = df["Close"]
+    try:
+        close = df["Close"].squeeze()
 
-    current_price = close.iloc[-1]
+        current_price = float(close.iloc[-1])
+        ma50 = float(close.tail(50).mean())
+        ma200 = float(close.tail(200).mean())
 
-    ma50 = close.tail(50).mean()
+        score = 0
 
-    ma200 = close.tail(200).mean()
+        if current_price > ma50:
+            score += 50
 
-    score = 0
+        if current_price > ma200:
+            score += 50
 
-    if current_price > ma50:
-        score += 50
+        results.append({
+            "Ticker": symbol,
+            "Price": round(current_price, 2),
+            "MA50": round(ma50, 2),
+            "MA200": round(ma200, 2),
+            "Score": score
+        })
 
-    if current_price > ma200:
-        score += 50
-
-    results.append({
-        "Ticker": symbol,
-        "Price": round(current_price, 2),
-        "MA50": round(ma50, 2),
-        "MA200": round(ma200, 2),
-        "Score": score
-    })
+    except Exception as e:
+        print(f"Error processing {symbol}: {e}")
 
 report = pd.DataFrame(results)
 
-report = report.sort_values(
-    by="Score",
-    ascending=False
-)
+if not report.empty:
 
-print("\n===== TOP STOCKS =====\n")
-print(report.to_string(index=False))
+    report = report.sort_values(
+        by="Score",
+        ascending=False
+    )
+
+    print("\n===== TOP STOCKS =====\n")
+    print(report.to_string(index=False))
+
+else:
+    print("No stocks processed.")
