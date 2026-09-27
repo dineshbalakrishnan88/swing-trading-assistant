@@ -251,4 +251,4 @@ for _, row in sp500.iterrows():
 
         ma200 = float(
             close.tail(200).mean()
-  
+        )
