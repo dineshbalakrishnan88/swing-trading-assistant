@@ -1,5 +1,6 @@
 import yfinance as yf
 import pandas as pd
+from ta.momentum import RSIIndicator
 
 stocks = [
     "NVDA",
@@ -20,36 +21,50 @@ for symbol in stocks:
 
     print(f"Scanning {symbol}...")
 
-    df = yf.download(
-        symbol,
-        period="1y",
-        auto_adjust=True,
-        progress=False
-    )
-
-    if df.empty:
-        continue
-
     try:
+
+        df = yf.download(
+            symbol,
+            period="1y",
+            auto_adjust=True,
+            progress=False
+        )
+
+        if df.empty:
+            continue
+
         close = df["Close"].squeeze()
 
         current_price = float(close.iloc[-1])
+
         ma50 = float(close.tail(50).mean())
         ma200 = float(close.tail(200).mean())
 
+        rsi = float(
+            RSIIndicator(close).rsi().iloc[-1]
+        )
+
         score = 0
 
+        # Trend
+
         if current_price > ma50:
-            score += 50
+            score += 40
 
         if current_price > ma200:
-            score += 50
+            score += 40
+
+        # RSI Sweet Spot
+
+        if 50 <= rsi <= 70:
+            score += 20
 
         results.append({
             "Ticker": symbol,
             "Price": round(current_price, 2),
             "MA50": round(ma50, 2),
             "MA200": round(ma200, 2),
+            "RSI": round(rsi, 1),
             "Score": score
         })
 
