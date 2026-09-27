@@ -2,32 +2,22 @@ import yfinance as yf
 import pandas as pd
 from ta.momentum import RSIIndicator
 
-# =====================================
-# SETTINGS
-# =====================================
-
 MAX_RISK_PER_TRADE = 100
+TOP_STOCKS = 20
 
-stocks = [
-    "NVDA",
-    "PLTR",
-    "CRWD",
-    "PANW",
-    "MRVL",
-    "MSFT",
-    "META",
-    "AMD",
-    "AVGO",
-    "AAPL"
-]
+print("Downloading S&P 500 symbols...")
 
-# =====================================
-# SCAN STOCKS
-# =====================================
+sp500 = pd.read_html(
+    "https://en.wikipedia.org/wiki/List_of_S%26P_500_companies"
+)[0]
+
+stocks = sp500["Symbol"].tolist()
 
 results = []
 
 for symbol in stocks:
+
+    symbol = str(symbol).replace(".", "-")
 
     print(f"Scanning {symbol}...")
 
@@ -40,7 +30,7 @@ for symbol in stocks:
             progress=False
         )
 
-        if df.empty:
+        if len(df) < 200:
             continue
 
         close = df["Close"].squeeze()
@@ -55,10 +45,6 @@ for symbol in stocks:
             RSIIndicator(close).rsi().iloc[-1]
         )
 
-        # ==========================
-        # SCORE
-        # ==========================
-
         score = 0
 
         if current_price > ma50:
@@ -69,10 +55,6 @@ for symbol in stocks:
 
         if 50 <= rsi <= 70:
             score += 20
-
-        # ==========================
-        # RATING
-        # ==========================
 
         if score >= 100:
             rating = "STRONG BUY"
@@ -85,10 +67,6 @@ for symbol in stocks:
 
         else:
             rating = "AVOID"
-
-        # ==========================
-        # TRADE PLAN
-        # ==========================
 
         buy_zone = round(
             ma50 * 1.02,
@@ -161,10 +139,6 @@ for symbol in stocks:
             f"Error processing {symbol}: {e}"
         )
 
-# =====================================
-# CREATE REPORT
-# =====================================
-
 report = pd.DataFrame(results)
 
 if not report.empty:
@@ -173,6 +147,8 @@ if not report.empty:
         by=["Score", "RSI"],
         ascending=[False, True]
     )
+
+    report = report.head(TOP_STOCKS)
 
     report.insert(
         0,
@@ -183,21 +159,15 @@ if not report.empty:
         )
     )
 
-    print("\n===== TOP STOCKS =====\n")
-
-    print(
-        report.to_string(
-            index=False
-        )
-    )
-
     report.to_excel(
         "weekly_watchlist.xlsx",
         index=False
     )
 
+    print(report.to_string(index=False))
+
     print(
-        "\nExcel report created"
+        "\nTop 20 report created"
     )
 
 else:
