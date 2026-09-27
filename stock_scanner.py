@@ -66,7 +66,14 @@ if not report.empty:
     )
 
     print("\n===== TOP STOCKS =====\n")
-    print(report.to_string(index=False))
+print(report.to_string(index=False))
+
+report.to_excel(
+    "weekly_watchlist.xlsx",
+    index=False
+)
+
+print("\nExcel report created")
 
 else:
     print("No stocks processed.")
