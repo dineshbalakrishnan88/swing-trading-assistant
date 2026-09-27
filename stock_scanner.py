@@ -2,30 +2,16 @@ import yfinance as yf
 import pandas as pd
 from ta.momentum import RSIIndicator
 
-# ===========================
-# SETTINGS
-# ===========================
-
 MAX_RISK_PER_TRADE = 100
-TOP_STOCKS = 20
+MAX_STOCKS = 5
 
-# ===========================
-# LOAD S&P 500
-# ===========================
-
-print("Loading S&P 500 stocks...")
+print("Loading S&P500 stocks...")
 
 sp500_url = "https://raw.githubusercontent.com/datasets/s-and-p-500-companies/master/data/constituents.csv"
 
 sp500 = pd.read_csv(sp500_url)
 
 stocks = sp500["Symbol"].tolist()
-
-print(f"Loaded {len(stocks)} stocks")
-
-# ===========================
-# SCAN
-# ===========================
 
 results = []
 
@@ -36,6 +22,50 @@ for symbol in stocks:
     print(f"Scanning {symbol}...")
 
     try:
+
+        stock = yf.Ticker(symbol)
+
+        info = stock.info
+
+        revenue_growth = info.get(
+            "revenueGrowth",
+            None
+        )
+
+        earnings_growth = info.get(
+            "earningsGrowth",
+            None
+        )
+
+        profit_margin = info.get(
+            "profitMargins",
+            None
+        )
+
+        market_cap = info.get(
+            "marketCap",
+            None
+        )
+
+        if (
+            revenue_growth is None or
+            earnings_growth is None or
+            profit_margin is None or
+            market_cap is None
+        ):
+            continue
+
+        if revenue_growth < 0.10:
+            continue
+
+        if earnings_growth < 0.10:
+            continue
+
+        if profit_margin <= 0:
+            continue
+
+        if market_cap < 10000000000:
+            continue
 
         df = yf.download(
             symbol,
@@ -59,40 +89,39 @@ for symbol in stocks:
             RSIIndicator(close).rsi().iloc[-1]
         )
 
-        score = 0
+        if current_price <= ma50:
+            continue
 
-        if current_price > ma50:
-            score += 40
+        if current_price <= ma200:
+            continue
 
-        if current_price > ma200:
-            score += 40
+        if not (50 <= rsi <= 70):
+            continue
 
-        if 50 <= rsi <= 70:
-            score += 20
+        score = 100
 
-        if score >= 100:
-            rating = "STRONG BUY"
+        rating = "ELITE"
 
-        elif score >= 80:
-            rating = "BUY"
+        buy_zone = round(
+            ma50 * 1.02,
+            2
+        )
 
-        elif score >= 60:
-            rating = "WATCH"
+        stop_loss = round(
+            ma50 * 0.97,
+            2
+        )
 
-        else:
-            rating = "AVOID"
-
-        buy_zone = round(ma50 * 1.02, 2)
-
-        stop_loss = round(ma50 * 0.97, 2)
-
-        risk_per_share = current_price - stop_loss
+        risk_per_share = (
+            current_price - stop_loss
+        )
 
         if risk_per_share <= 0:
             continue
 
         target_price = round(
-            current_price + (risk_per_share * 2),
+            current_price +
+            (risk_per_share * 2),
             2
         )
 
@@ -104,60 +133,74 @@ for symbol in stocks:
             )
         )
 
-        position_value = round(
-            shares * current_price,
-            2
-        )
-
-        risk_reward = round(
-            (
-                target_price -
-                current_price
-            )
-            /
-            (
-                current_price -
-                stop_loss
-            ),
-            2
-        )
-
         results.append({
 
             "Ticker": symbol,
+
             "Rating": rating,
-            "Price": round(current_price, 2),
-            "Buy Zone": buy_zone,
-            "MA50": round(ma50, 2),
-            "MA200": round(ma200, 2),
-            "RSI": round(rsi, 1),
+
             "Score": score,
+
+            "Price": round(
+                current_price,
+                2
+            ),
+
+            "Revenue Growth %": round(
+                revenue_growth * 100,
+                1
+            ),
+
+            "Earnings Growth %": round(
+                earnings_growth * 100,
+                1
+            ),
+
+            "Profit Margin %": round(
+                profit_margin * 100,
+                1
+            ),
+
+            "RSI": round(
+                rsi,
+                1
+            ),
+
             "Stop Loss": stop_loss,
+
             "Target": target_price,
-            "Shares": shares,
-            "Position Value": position_value,
-            "Risk/Reward": risk_reward
+
+            "Shares": shares
 
         })
 
     except Exception as e:
 
-        print(f"Error processing {symbol}: {e}")
-
-# ===========================
-# REPORT
-# ===========================
+        print(
+            f"Error processing {symbol}: {e}"
+        )
 
 report = pd.DataFrame(results)
 
-if not report.empty:
+if report.empty:
+
+    report = pd.DataFrame({
+        "Message": [
+            "NO HIGH-CONVICTION TRADES THIS WEEK"
+        ]
+    })
+
+else:
 
     report = report.sort_values(
-        by=["Score", "RSI"],
-        ascending=[False, True]
+        by=[
+            "Revenue Growth %",
+            "Earnings Growth %"
+        ],
+        ascending=False
     )
 
-    report = report.head(TOP_STOCKS)
+    report = report.head(MAX_STOCKS)
 
     report.insert(
         0,
@@ -168,25 +211,13 @@ if not report.empty:
         )
     )
 
-    print("\n===== TOP 20 STOCKS =====\n")
+report.to_excel(
+    "weekly_watchlist.xlsx",
+    index=False
+)
 
-    print(
-        report.to_string(
-            index=False
-        )
-    )
+print(report)
 
-    report.to_excel(
-        "weekly_watchlist.xlsx",
-        index=False
-    )
-
-    print(
-        "\nTop 20 report created"
-    )
-
-else:
-
-    print(
-        "No stocks processed."
-    )
+print(
+    "\nHigh Conviction Report Created"
+)
