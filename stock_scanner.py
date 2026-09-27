@@ -1,3 +1,8 @@
-print("Hello Dinesh")
+import yfinance as yf
 
-print("Your AI Swing Trading Assistant is working!")
+ticker = yf.Ticker("NVDA")
+
+price = ticker.history(period="1d")
+
+print("NVIDIA latest data:")
+print(price.tail())
