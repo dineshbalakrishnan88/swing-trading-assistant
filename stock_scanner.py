@@ -36,9 +36,7 @@ for symbol in stocks:
         close = df["Close"].squeeze()
 
         current_price = float(close.iloc[-1])
-
         ma50 = float(close.tail(50).mean())
-
         ma200 = float(close.tail(200).mean())
 
         rsi = float(
@@ -47,20 +45,14 @@ for symbol in stocks:
 
         score = 0
 
-        # Trend Score
-
         if current_price > ma50:
             score += 40
 
         if current_price > ma200:
             score += 40
 
-        # RSI Sweet Spot
-
         if 50 <= rsi <= 70:
             score += 20
-
-        # Trading Plan
 
         stop_loss = round(ma50 * 0.97, 2)
 
@@ -98,4 +90,20 @@ report = pd.DataFrame(results)
 if not report.empty:
 
     report = report.sort_values(
-        by=["Score", "
+        by=["Score", "RSI"],
+        ascending=[False, True]
+    )
+
+    print("\n===== TOP STOCKS =====\n")
+    print(report.to_string(index=False))
+
+    report.to_excel(
+        "weekly_watchlist.xlsx",
+        index=False
+    )
+
+    print("\nExcel report created")
+
+else:
+
+    print("No stocks processed.")
