@@ -2,16 +2,30 @@ import yfinance as yf
 import pandas as pd
 from ta.momentum import RSIIndicator
 
+# ===========================
+# SETTINGS
+# ===========================
+
 MAX_RISK_PER_TRADE = 100
 TOP_STOCKS = 20
 
-print("Downloading S&P 500 symbols...")
+# ===========================
+# LOAD S&P 500
+# ===========================
 
-sp500 = pd.read_html(
-    "https://en.wikipedia.org/wiki/List_of_S%26P_500_companies"
-)[0]
+print("Loading S&P 500 stocks...")
+
+sp500_url = "https://raw.githubusercontent.com/datasets/s-and-p-500-companies/master/data/constituents.csv"
+
+sp500 = pd.read_csv(sp500_url)
 
 stocks = sp500["Symbol"].tolist()
+
+print(f"Loaded {len(stocks)} stocks")
+
+# ===========================
+# SCAN
+# ===========================
 
 results = []
 
@@ -68,19 +82,11 @@ for symbol in stocks:
         else:
             rating = "AVOID"
 
-        buy_zone = round(
-            ma50 * 1.02,
-            2
-        )
+        buy_zone = round(ma50 * 1.02, 2)
 
-        stop_loss = round(
-            ma50 * 0.97,
-            2
-        )
+        stop_loss = round(ma50 * 0.97, 2)
 
-        risk_per_share = (
-            current_price - stop_loss
-        )
+        risk_per_share = current_price - stop_loss
 
         if risk_per_share <= 0:
             continue
@@ -107,7 +113,8 @@ for symbol in stocks:
             (
                 target_price -
                 current_price
-            ) /
+            )
+            /
             (
                 current_price -
                 stop_loss
@@ -135,9 +142,11 @@ for symbol in stocks:
 
     except Exception as e:
 
-        print(
-            f"Error processing {symbol}: {e}"
-        )
+        print(f"Error processing {symbol}: {e}")
+
+# ===========================
+# REPORT
+# ===========================
 
 report = pd.DataFrame(results)
 
@@ -159,12 +168,18 @@ if not report.empty:
         )
     )
 
+    print("\n===== TOP 20 STOCKS =====\n")
+
+    print(
+        report.to_string(
+            index=False
+        )
+    )
+
     report.to_excel(
         "weekly_watchlist.xlsx",
         index=False
     )
-
-    print(report.to_string(index=False))
 
     print(
         "\nTop 20 report created"
