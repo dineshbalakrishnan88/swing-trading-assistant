@@ -56,8 +56,21 @@ for symbol in stocks:
 
         # RSI Sweet Spot
 
-        if 50 <= rsi <= 70:
+                if 50 <= rsi <= 70:
             score += 20
+
+        stop_loss = round(ma50 * 0.97, 2)
+
+        risk_per_share = current_price - stop_loss
+
+        target_price = round(
+            current_price + (risk_per_share * 2),
+            2
+        )
+
+        shares = int(
+            100 / risk_per_share
+        )
 
         results.append({
             "Ticker": symbol,
@@ -65,7 +78,10 @@ for symbol in stocks:
             "MA50": round(ma50, 2),
             "MA200": round(ma200, 2),
             "RSI": round(rsi, 1),
-            "Score": score
+            "Score": score,
+            "Stop Loss": stop_loss,
+            "Target": target_price,
+            "Shares": shares
         })
 
     except Exception as e:
@@ -76,9 +92,9 @@ report = pd.DataFrame(results)
 if not report.empty:
 
     report = report.sort_values(
-        by="Score",
-        ascending=False
-    )
+    by=["Score", "RSI"],
+    ascending=[False, True]
+)
 
     print("\n===== TOP STOCKS =====\n")
     print(report.to_string(index=False))
